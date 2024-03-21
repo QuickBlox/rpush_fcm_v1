@@ -42,7 +42,7 @@ module Rpush
           when 400
             bad_request(response)
           when 401
-            unauthorized
+            unauthorized(response)
           when 403
             sender_id_mismatch
           when 404
@@ -72,7 +72,8 @@ module Rpush
           fail Rpush::DeliveryError.new(400, @notification.id, "FCM failed to handle the JSON request. (#{parse_error(response)})")
         end
 
-        def unauthorized
+        def unauthorized(response)
+          reflect(:fcm_invalid_authentication, @app, response)
           fail Rpush::DeliveryError.new(401, @notification.id, 'Unauthorized, Bearer token could not be validated.')
         end
 
@@ -142,6 +143,8 @@ module Rpush
                                      'Authorization' => "Bearer #{token}")
           post.body = @notification.as_json.to_json
           @http.request(@uri, post)
+        rescue Signet::AuthorizationError => error
+          Net::HTTPResponse.new("https", 401, error.response.body)
         end
 
         def necessary_data_exists?(app)
